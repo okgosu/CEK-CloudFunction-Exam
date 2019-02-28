@@ -4,12 +4,12 @@ const TEST_NUM = 1;
 const myPlayerId = uuid();
 
 let DOMAIN = "http://static.naver.net/clova/service/native_extensions/sound_serise"
+let skillLogoUrl = 'https://phinf.pstatic.net/contact/42/2016/6/1/okgosu_1464774184074.jpg?type=s160'; // Skill 로고 이미지 URL
 let AUDIO_ARR = new Array(
   { token:uuid(), titleText:'빗소리', titleSubText1:'[출처] 잡소리 스킬', artImageUrl:`${DOMAIN}/img_sound_rain_108.png`, headerText:'잡소리 스킬 재생 목록', stream:`${DOMAIN}/rainning_sound.mp3`},
   { token:uuid(), titleText:'파도소리', titleSubText1:'[출처] 잡소리 스킬', artImageUrl:`${DOMAIN}/img_sound_wave_108.png`, headerText:'잡소리 스킬 재생 목록', stream:`${DOMAIN}/wave_sound.mp3`},
   { token:uuid(), titleText:'카페소리', titleSubText1:'[출처] 잡소리 스킬', artImageUrl:`${DOMAIN}/img_sound_cafe_108.png`, headerText:'잡소리 스킬 재생 목록', stream:`${DOMAIN}/cafe_sound.mp3`}
 );
-let skillLogoUrl = 'https://phinf.pstatic.net/contact/42/2016/6/1/okgosu_1464774184074.jpg?type=s160'; // Skill 로고 이미지 URL
 let playInfoArr = null; // 현재 재생중인 곡 정보 저장용
 let curIndex = 0; // 배열에서 현재 재생중인 곡의 인덱스
 
@@ -33,6 +33,7 @@ function playControlDirective(type) {
 }
 
 function templateRuntime(playInfoArr) {
+  console.log("====================templateRuntime================")
   return new Directive({
     arr: AUDIO_ARR,
     namespace: 'TemplateRuntime',
@@ -63,19 +64,6 @@ function templateRuntime(playInfoArr) {
       displayType: 'single',
       playerId: myPlayerId,
       playableItems: AUDIO_ARR,
-/*
-      playableItems: [
-        {
-          token: playInfoArr.token,
-          artImageUrl:playInfoArr.artImageUrl,
-          showAdultIcon: false,
-          headerText: playInfoArr.headerText,
-          titleSubText1: playInfoArr.titleSubText1,
-          titleSubText2: playInfoArr.titleSubText1,
-          titleText: playInfoArr.titleText,
-        }
-      ],
-*/
       provider: {
         logoUrl: skillLogoUrl,
         artImageUrl : playInfoArr.artImageUrl,
@@ -85,19 +73,8 @@ function templateRuntime(playInfoArr) {
     }
   })
 }
-
-function clearAudio() {
-    return new Directive({
-      namespace: 'AudioPlayer',
-      name: 'ClearQueue',
-      payload: {
-        "clearBehavior": "CLEAR_ALL"
-      }
-    })
-}
-
+// Audio 재생 지시
 function audioDirective(playInfoArr) {
-  episodeId = Math.floor(Math.random() * 1000)
   return new Directive({
     namespace: 'AudioPlayer',
     name: 'Play',
@@ -185,7 +162,7 @@ function setPlayInfo(index) {
   playInfoArr = playByIndex(index)
 }
 
-function playSound(cekResponse, deviceSize) {
+function playSound(cekResponse) {
   cekResponse.addDirective(audioDirective(playInfoArr))
  }
 
@@ -198,13 +175,13 @@ class CEKRequest {
 
   do(cekResponse) {
     switch (this.request.type) {
-      case "LaunchRequest":
+      case "LaunchRequest": // 스킬 최초 시작
         return this.launchRequest(cekResponse)
-      case "IntentRequest":
+      case "IntentRequest":  // 사용자 의도 분석 시
         return this.intentRequest(cekResponse)
       case "SessionEndedRequest":
         return this.sessionEndedRequest(cekResponse)
-      case "EventRequest":
+      case "EventRequest": // 오디오 메타 정보 요청 시
         return this.eventRequest(cekResponse)
     }
   }
@@ -213,15 +190,25 @@ class CEKRequest {
     const eventName = this.request.event.name
     console.log('=====EventRequest RequestPlayerInfo .eventName======' + eventName);
     if(eventName== 'RequestPlayerInfo') {
-      console.log("RequestPlayerInfo 이벤트 발생! 재생 메타데이터를 전송!!")
       cekResponse.addDirective(templateRuntime(playInfoArr))
+    } else if(eventName== 'PlayFinished') {
+      cekResponse.appendSpeechText("음원 재생이 종료되었습니다.")
+      cekResponse.addDirective(playControlDirective('Finish'))       // 실제 있는 디렉티브인지 확인 필요
+    } else if(eventName== 'PlayPaused') {
+      cekResponse.appendSpeechText("음원 재생이 일시 정지되었습니다.")
+      cekResponse.addDirective(playControlDirective('Pause'))
+    } else if(eventName== 'PlayResumed') {
+      cekResponse.appendSpeechText("음원 재생이 재개되었습니다.")
+      cekResponse.addDirective(playControlDirective('Resume'))
+    } else if(eventName== 'PlayStopped') {
+      cekResponse.appendSpeechText("음원 재생이 중지 되었습니다.")
+      cekResponse.addDirective(playControlDirective('Stop'))
     }
   }
   launchRequest(cekResponse) {
     setPlayInfo(0);
-    cekResponse.appendSpeechText(TEST_NUM + ' 번째 테스트, ' + playInfoArr.titleText + "를 재생합니다. ")
-    playSound(cekResponse, this.context.System.device.display.size)
-    cekResponse.setMultiturn(playInfoArr)
+    cekResponse.appendSpeechText(TEST_NUM + ' 번째 테스트입니다. ' + playInfoArr.titleText + "를 재생합니다. ");
+    playSound(cekResponse);
   }
 
   intentRequest(cekResponse) {
@@ -235,24 +222,12 @@ class CEKRequest {
       setPlayInfo(0);
     }
     switch (intent) {
-      case "Clova.PauseIntent":
-        cekResponse.appendSpeechText("음원을 일시 중지 합니다.")
-        cekResponse.addDirective(playControlDirective('Pause'))
-        break;
-      case "Clova.ResumeIntent":
-        cekResponse.appendSpeechText("음원을 다시 재생합니다.")
-        cekResponse.addDirective(playControlDirective('Resume'))
-        break;
-      case "Clova.StopIntent":
-        cekResponse.appendSpeechText("음원재생을 종료합니다.")
-        cekResponse.addDirective(playControlDirective('Stop'))
-        break;
       case "Clova.NextIntent":
         if(getNextSong(curIndex)) {
           curIndex++;
           setPlayInfo(curIndex);
           cekResponse.appendSpeechText("다음 음원을 재생합니다. 제목은 " + playInfoArr.titleText + "입니다.")
-          playSound(cekResponse, this.context.System.device.display.size)
+          playSound(cekResponse)
         } else {
           cekResponse.appendSpeechText("더 이상 재생할 음원이 없습니다.")
         }
@@ -262,7 +237,7 @@ class CEKRequest {
           curIndex--;
           setPlayInfo(curIndex);
           cekResponse.appendSpeechText("이전 음원을 재생합니다. 제목은 " + playInfoArr.titleText + "입니다.")
-          playSound(cekResponse, this.context.System.device.display.size)
+          playSound(cekResponse)
         } else {
           cekResponse.appendSpeechText("더 이상 재생할 음원이 없습니다.")
         }
@@ -290,7 +265,7 @@ class CEKRequest {
             cekResponse.appendSpeechText(playInfoArr.titleText + `를 ${loopCount}번 재생합니다.`)
           }
           for (let i = 0; i < loopCount; i++) {
-            playSound(cekResponse, this.context.System.device.display.size)
+            playSound(cekResponse)
           }
         }
         break
