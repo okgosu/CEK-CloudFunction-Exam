@@ -29,7 +29,8 @@ class CEKRequest {
     }
   }
   launchRequest(cekResponse) {
-    cekResponse.setSimpleSpeechText('로또 박사입니다. 행운의 로또 번호는 1, 2, 3, 4, 5, 6 입니다.');
+    cekResponse.setSimpleSpeechText('로또 박사입니다. 로또 번호를 몇개 뽑아 드릴까요?');
+    cekResponse.setMultiturn();
   }
   sessionEndedRequest(cekResponse) {
     cekResponse.setSimpleSpeechText('로또 박사를 이용해 주셔서 감사합니다.');
